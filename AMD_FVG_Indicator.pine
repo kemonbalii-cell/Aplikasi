@@ -1,0 +1,179 @@
+//@version=5
+indicator("AMD + FVG", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=500)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  AMD (Accumulation · Manipulation · Distribution) + FVG Indicator
+//  Based on ICT concepts. Highlights session ranges and Fair Value Gaps.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ─── AMD INPUTS ───────────────────────────────────────────────────────────────
+var string G1 = "══ AMD Sessions ══"
+i_show_amd  = input.bool(true, "Show AMD Sessions", group=G1)
+i_tz        = input.string("America/New_York", "Timezone", group=G1,
+                tooltip="TZ database name. Examples:\n  America/New_York\n  Europe/London\n  Asia/Tokyo\n  Asia/Singapore")
+i_a_sess    = input.string("2000-0000", "Accumulation (A)", group=G1, inline="a")
+i_a_col     = input.color(color.new(#2962FF, 88), "", group=G1, inline="a")
+i_m_sess    = input.string("0200-0500", "Manipulation  (M)", group=G1, inline="m")
+i_m_col     = input.color(color.new(#FF6D00, 88), "", group=G1, inline="m")
+i_d_sess    = input.string("0930-1200", "Distribution  (D)", group=G1, inline="d")
+i_d_col     = input.color(color.new(#00897B, 88), "", group=G1, inline="d")
+i_show_lbl  = input.bool(true,  "Show Labels",      group=G1)
+i_show_hl   = input.bool(true,  "Show Session H/L Lines", group=G1)
+
+// ─── FVG INPUTS ───────────────────────────────────────────────────────────────
+var string G2 = "══ Fair Value Gap (FVG) ══"
+i_show_fvg  = input.bool(true,  "Show FVGs",      group=G2)
+i_bull_on   = input.bool(true,  "Bullish FVG",    group=G2, inline="bull")
+i_bull_col  = input.color(color.new(#26A69A, 78), "", group=G2, inline="bull")
+i_bear_on   = input.bool(true,  "Bearish FVG",    group=G2, inline="bear")
+i_bear_col  = input.color(color.new(#EF5350, 78), "", group=G2, inline="bear")
+i_fvg_ext   = input.int(50,  "Extend (bars)", minval=1, maxval=500, group=G2)
+i_show_mid  = input.bool(true,  "Show FVG Midline",    group=G2)
+i_show_mit  = input.bool(true,  "Show Mitigated FVGs", group=G2, inline="mit")
+i_mit_col   = input.color(color.new(#787B86, 88), "", group=G2, inline="mit")
+i_fvg_tf    = input.timeframe("", "FVG Timeframe (blank = chart)", group=G2)
+
+// ─── ALERT INPUTS ─────────────────────────────────────────────────────────────
+var string G3 = "══ Alerts ══"
+i_alert_fvg = input.bool(false, "Alert on new FVG", group=G3)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  AMD SESSION BOXES
+// ══════════════════════════════════════════════════════════════════════════════
+in_a = i_show_amd and not na(time(timeframe.period, i_a_sess, i_tz))
+in_m = i_show_amd and not na(time(timeframe.period, i_m_sess, i_tz))
+in_d = i_show_amd and not na(time(timeframe.period, i_d_sess, i_tz))
+
+// Persistent state for each session
+var box   bxA = na,  var float hiA = na,  var float loA = na,  var bool wasA = false
+var box   bxM = na,  var float hiM = na,  var float loM = na,  var bool wasM = false
+var box   bxD = na,  var float hiD = na,  var float loD = na,  var bool wasD = false
+var line  hlA_hi = na, var line hlA_lo = na
+var line  hlM_hi = na, var line hlM_lo = na
+var line  hlD_hi = na, var line hlD_lo = na
+
+f_draw_sess(in_sess, was_sess, bx, hi_val, lo_val, col, lbl) =>
+    var box   _bx  = na
+    var float _hi  = na
+    var float _lo  = na
+    var bool  _was = false
+    if in_sess and not _was                              // session start
+        _hi := high
+        _lo := low
+        _bx := box.new(bar_index, high, bar_index + 1, low,
+                 bgcolor=col, border_color=color.new(col, 30), border_width=1)
+        if i_show_lbl
+            label.new(bar_index, high, lbl, yloc=yloc.abovebar,
+                 style=label.style_label_down, size=size.small,
+                 color=color.new(col, 20), textcolor=color.white)
+    if in_sess
+        _hi := math.max(_hi, high)
+        _lo := math.min(_lo, low)
+        box.set_top(_bx,    _hi)
+        box.set_bottom(_bx, _lo)
+        box.set_right(_bx,  bar_index + 1)
+    _was := in_sess
+    [_bx, _hi, _lo, _was]
+
+[_bxA, _hiA, _loA, _wasA] = f_draw_sess(in_a, wasA, bxA, hiA, loA, i_a_col, "A  Accumulation")
+[_bxM, _hiM, _loM, _wasM] = f_draw_sess(in_m, wasM, bxM, hiM, loM, i_m_col, "M  Manipulation")
+[_bxD, _hiD, _loD, _wasD] = f_draw_sess(in_d, wasD, bxD, hiD, loD, i_d_col, "D  Distribution")
+
+// Session H/L dotted lines drawn when session closes
+if wasA and not in_a and i_show_hl
+    line.delete(hlA_hi)
+    line.delete(hlA_lo)
+    hlA_hi := line.new(bar_index, hiA, bar_index + 50, hiA, color=color.new(i_a_col, 30), style=line.style_dotted, width=1)
+    hlA_lo := line.new(bar_index, loA, bar_index + 50, loA, color=color.new(i_a_col, 30), style=line.style_dotted, width=1)
+
+if wasM and not in_m and i_show_hl
+    line.delete(hlM_hi)
+    line.delete(hlM_lo)
+    hlM_hi := line.new(bar_index, hiM, bar_index + 50, hiM, color=color.new(i_m_col, 30), style=line.style_dotted, width=1)
+    hlM_lo := line.new(bar_index, loM, bar_index + 50, loM, color=color.new(i_m_col, 30), style=line.style_dotted, width=1)
+
+if wasD and not in_d and i_show_hl
+    line.delete(hlD_hi)
+    line.delete(hlD_lo)
+    hlD_hi := line.new(bar_index, hiD, bar_index + 50, hiD, color=color.new(i_d_col, 30), style=line.style_dotted, width=1)
+    hlD_lo := line.new(bar_index, loD, bar_index + 50, loD, color=color.new(i_d_col, 30), style=line.style_dotted, width=1)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  FAIR VALUE GAP (FVG)
+// ══════════════════════════════════════════════════════════════════════════════
+use_tf = i_fvg_tf == "" ? timeframe.period : i_fvg_tf
+
+// Fetch OHLC for target timeframe (high/low of current and 2-bars-ago on that TF)
+[fh0, fl0, fh2, fl2] = request.security(syminfo.tickerid, use_tf,
+     [high, low, high[2], low[2]], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+// FVG conditions
+// Bullish FVG: bar[0] low > bar[2] high  →  upward gap
+// Bearish FVG: bar[0] high < bar[2] low  →  downward gap
+is_bull = i_show_fvg and i_bull_on and fl0 > fh2
+is_bear = i_show_fvg and i_bear_on and fh0 < fl2
+
+// ─── FVG UDT ──────────────────────────────────────────────────────────────────
+type FVG
+    box   b
+    line  mid
+    bool  bullish
+    float top_val
+    float bot_val
+
+var FVG[] fvg_pool = array.new<FVG>()
+
+// Create new FVG boxes on detection
+if is_bull
+    b = box.new(bar_index - 2, fl0, bar_index + i_fvg_ext, fh2,
+          bgcolor=i_bull_col, border_color=color.new(i_bull_col, 40), border_width=1)
+    mid_y = math.avg(fl0, fh2)
+    m = i_show_mid ? line.new(bar_index - 2, mid_y, bar_index + i_fvg_ext, mid_y,
+              color=color.new(i_bull_col, 20), style=line.style_dashed, width=1) : na
+    array.push(fvg_pool, FVG.new(b, m, true, fl0, fh2))
+
+if is_bear
+    b = box.new(bar_index - 2, fh0, bar_index + i_fvg_ext, fl2,
+          bgcolor=i_bear_col, border_color=color.new(i_bear_col, 40), border_width=1)
+    mid_y = math.avg(fh0, fl2)
+    m = i_show_mid ? line.new(bar_index - 2, mid_y, bar_index + i_fvg_ext, mid_y,
+              color=color.new(i_bear_col, 20), style=line.style_dashed, width=1) : na
+    array.push(fvg_pool, FVG.new(b, m, false, fh0, fl2))
+
+// Update active FVGs: extend right edge and check mitigation
+if array.size(fvg_pool) > 0
+    for i = array.size(fvg_pool) - 1 to 0
+        fvg = array.get(fvg_pool, i)
+        // Mitigation: price closes into the gap
+        mitigated = fvg.bullish ? close <= fvg.bot_val : close >= fvg.top_val
+        if mitigated
+            if i_show_mit
+                box.set_bgcolor(fvg.b,       i_mit_col)
+                box.set_border_color(fvg.b,  i_mit_col)
+                box.set_right(fvg.b, bar_index + 1)
+                if not na(fvg.mid)
+                    line.set_color(fvg.mid, i_mit_col)
+                    line.set_x2(fvg.mid, bar_index + 1)
+            else
+                box.delete(fvg.b)
+                if not na(fvg.mid)
+                    line.delete(fvg.mid)
+            array.remove(fvg_pool, i)
+        else
+            box.set_right(fvg.b, bar_index + i_fvg_ext)
+            if not na(fvg.mid)
+                line.set_x2(fvg.mid, bar_index + i_fvg_ext)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  ALERTS
+// ══════════════════════════════════════════════════════════════════════════════
+alertcondition(is_bull, "Bullish FVG Formed", "Bullish Fair Value Gap detected")
+alertcondition(is_bear, "Bearish FVG Formed", "Bearish Fair Value Gap detected")
+alertcondition(is_bull or is_bear, "Any FVG Formed", "Fair Value Gap detected")
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  BACKGROUND HIGHLIGHT (subtle session coloring on price pane)
+// ══════════════════════════════════════════════════════════════════════════════
+bgcolor(in_a ? color.new(i_a_col, 96) : na, title="Accumulation BG")
+bgcolor(in_m ? color.new(i_m_col, 96) : na, title="Manipulation BG")
+bgcolor(in_d ? color.new(i_d_col, 96) : na, title="Distribution BG")
