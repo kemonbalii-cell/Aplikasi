@@ -1,7 +1,7 @@
 {
-  "name": "react-example",
+  "name": "astra-hermes-ultra",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
@@ -20,7 +20,12 @@
     "vite": "^6.2.3",
     "express": "^4.21.2",
     "dotenv": "^17.2.3",
-    "motion": "^12.23.24"
+    "motion": "^12.23.24",
+    "zustand": "^5.0.5",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.1",
+    "rehype-highlight": "^7.0.2",
+    "highlight.js": "^11.11.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
