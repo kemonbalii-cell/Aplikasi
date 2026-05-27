@@ -18,7 +18,7 @@ export const MODELS: ModelDef[] = [
   // MiniMax
   { id: 'MiniMax-Text-01', name: 'MiniMax Text-01', provider: 'minimax', contextWindow: 1_000_000, inputCostPer1m: 0.14, outputCostPer1m: 0.55, supportsTools: true, supportsVision: false, supportsStreaming: true, description: 'MiniMax flagship long-context model' },
   { id: 'MiniMax-M1', name: 'MiniMax M1', provider: 'minimax', contextWindow: 1_000_000, inputCostPer1m: 0.3, outputCostPer1m: 1.1, supportsTools: true, supportsVision: false, supportsStreaming: true, description: 'MiniMax reasoning model' },
-  { id: 'MiniMax-M2.7', name: 'MiniMax M2.7', provider: 'minimax', contextWindow: 1_000_000, inputCostPer1m: 0.3, outputCostPer1m: 1.1, supportsTools: true, supportsVision: false, supportsStreaming: true, description: 'MiniMax M2.7 model' },
+  { id: 'minimax-m2.7', name: 'MiniMax M2.7', provider: 'minimax', contextWindow: 1_000_000, inputCostPer1m: 0.3, outputCostPer1m: 1.1, supportsTools: true, supportsVision: false, supportsStreaming: true, description: 'MiniMax M2.7 model' },
   // Ollama
   { id: 'llama3.2', name: 'Llama 3.2', provider: 'ollama', contextWindow: 128_000, inputCostPer1m: 0, outputCostPer1m: 0, supportsTools: false, supportsVision: false, supportsStreaming: true, description: 'Local Llama model (free)' },
   { id: 'mistral', name: 'Mistral 7B', provider: 'ollama', contextWindow: 32_000, inputCostPer1m: 0, outputCostPer1m: 0, supportsTools: false, supportsVision: false, supportsStreaming: true, description: 'Local Mistral model (free)' },
@@ -482,7 +482,7 @@ export function routeMessage(
     return { provider: 'google', model: 'gemini-2.5-flash', reason: 'Auto-routed to Google' };
   }
   if (hasCreds('minimax')) {
-    return { provider: 'minimax', model: 'MiniMax-M2.7', reason: 'Auto-routed to MiniMax' };
+    return { provider: 'minimax', model: 'minimax-m2.7', reason: 'Auto-routed to MiniMax' };
   }
   if (hasCreds('ollama')) {
     return { provider: 'ollama', model: isCoding ? 'qwen2.5-coder' : 'llama3.2', reason: 'Auto-routed to local Ollama' };

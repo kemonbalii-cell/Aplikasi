@@ -181,7 +181,7 @@ function detectProvider(model: string): string {
   if (model.startsWith('claude')) return 'claude';
   if (model.startsWith('gpt') || model.startsWith('o1')) return 'openai';
   if (model.startsWith('gemini')) return 'google';
-  if (model.startsWith('MiniMax') || model.startsWith('abab')) return 'minimax';
+  if (/^(MiniMax|minimax|abab)/i.test(model)) return 'minimax';
   return 'ollama';
 }
 

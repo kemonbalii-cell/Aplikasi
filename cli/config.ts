@@ -98,7 +98,7 @@ export function configCmd(opts: ConfigOptions) {
   if (opts.minimaxKey) {
     config.providers.minimax = { apiKey: opts.minimaxKey };
     config.defaultProvider = 'minimax';
-    config.defaultModel = 'MiniMax-M2.7';
+    config.defaultModel = 'minimax-m2.7';
     console.log(chalk.green('✓ MiniMax API key saved'));
   }
   if (opts.ollamaUrl) {
