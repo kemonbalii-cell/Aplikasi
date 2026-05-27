@@ -131,7 +131,7 @@ async function directStream(
       }
     }
   } else if (provider === 'minimax' && creds.minimax?.apiKey) {
-    const resp = await fetch('https://api.minimaxi.chat/v1/chat/completions', {
+    const resp = await fetch('https://api.minimax.chat/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${creds.minimax.apiKey}`,

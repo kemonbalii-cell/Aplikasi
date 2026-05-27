@@ -344,7 +344,7 @@ async function* streamMiniMax(opts: SendMessageOptions): AsyncGenerator<StreamCh
   if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
   messages.push({ role: 'user', content });
 
-  const resp = await fetch('https://api.minimaxi.chat/v1/chat/completions', {
+  const resp = await fetch('https://api.minimax.chat/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
