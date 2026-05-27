@@ -7,15 +7,24 @@
     "astra": "./cli/bin.mjs",
     "astra-gateway": "./server/bin.mjs"
   },
+  "files": [
+    "cli/",
+    "server/",
+    "src/",
+    "dist-cli/",
+    "scripts/"
+  ],
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
+    "build:cli": "node scripts/build-cli.mjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist dist-cli",
     "lint": "tsc --noEmit",
     "gateway": "tsx server/index.ts",
     "cli": "tsx cli/index.ts",
     "astra": "tsx cli/index.ts",
+    "prepack": "node scripts/build-cli.mjs",
     "start": "concurrently \"npm run gateway\" \"npm run dev\""
   },
   "dependencies": {
@@ -41,7 +50,8 @@
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
     "vite": "^6.2.3",
-    "zustand": "^5.0.5"
+    "zustand": "^5.0.5",
+    "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
@@ -49,8 +59,8 @@
     "@types/marked": "^5.0.2",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
+    "esbuild": "^0.28.0",
     "tailwindcss": "^4.1.14",
-    "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3"
   }
