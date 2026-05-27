@@ -130,8 +130,42 @@ async function directStream(
         } catch {}
       }
     }
+  } else if (provider === 'minimax' && creds.minimax?.apiKey) {
+    const resp = await fetch('https://api.minimaxi.chat/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${creds.minimax.apiKey}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: message }],
+        max_tokens: config.maxTokens,
+        stream: true,
+      }),
+    });
+    const reader = resp.body!.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const ev = JSON.parse(data);
+          const text = ev.choices?.[0]?.delta?.content;
+          if (text) process.stdout.write(text);
+        } catch {}
+      }
+    }
   } else {
-    console.error(chalk.red('No provider configured. Run: npx tsx cli/index.ts config --claude-key <key>'));
+    console.error(chalk.red('No provider configured. Run: astra config --minimax-key <key>'));
   }
   process.stdout.write('\n');
 }
@@ -140,6 +174,7 @@ function detectProvider(model: string): string {
   if (model.startsWith('claude')) return 'claude';
   if (model.startsWith('gpt') || model.startsWith('o1')) return 'openai';
   if (model.startsWith('gemini')) return 'google';
+  if (model.startsWith('MiniMax') || model.startsWith('abab')) return 'minimax';
   return 'ollama';
 }
 

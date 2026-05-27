@@ -2,14 +2,15 @@ import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 
-const CONFIG_PATH = path.join(process.env.HOME || '~', '.astra', 'config.json');
+const CONFIG_PATH = path.join(process.env.HOME || process.env.USERPROFILE || '~', '.astra', 'config.json');
 
 interface Config {
   providers: {
-    claude?:  { apiKey: string };
-    openai?:  { apiKey: string };
-    google?:  { apiKey: string };
-    ollama?:  { baseUrl: string };
+    claude?:   { apiKey: string };
+    openai?:   { apiKey: string };
+    google?:   { apiKey: string };
+    ollama?:   { baseUrl: string };
+    minimax?:  { apiKey: string };
   };
   defaultModel: string;
   defaultProvider: string;
@@ -55,6 +56,7 @@ interface ConfigOptions {
   openaiKey?: string;
   googleKey?: string;
   ollamaUrl?: string;
+  minimaxKey?: string;
   model?: string;
   show?: boolean;
 }
@@ -73,6 +75,7 @@ export function configCmd(opts: ConfigOptions) {
     console.log(`  ${chalk.cyan('Claude')}    ${config.providers.claude?.apiKey ? chalk.green('✓ configured') : chalk.red('✗ not set')}`);
     console.log(`  ${chalk.cyan('OpenAI')}    ${config.providers.openai?.apiKey ? chalk.green('✓ configured') : chalk.red('✗ not set')}`);
     console.log(`  ${chalk.cyan('Google')}    ${config.providers.google?.apiKey ? chalk.green('✓ configured') : chalk.red('✗ not set')}`);
+    console.log(`  ${chalk.cyan('MiniMax')}   ${config.providers.minimax?.apiKey ? chalk.green('✓ configured') : chalk.red('✗ not set')}`);
     console.log(`  ${chalk.cyan('Ollama')}    ${config.providers.ollama?.baseUrl || 'http://localhost:11434'}`);
     console.log('');
     return;
@@ -91,6 +94,12 @@ export function configCmd(opts: ConfigOptions) {
   if (opts.googleKey) {
     config.providers.google = { apiKey: opts.googleKey };
     console.log(chalk.green('✓ Google API key saved'));
+  }
+  if (opts.minimaxKey) {
+    config.providers.minimax = { apiKey: opts.minimaxKey };
+    config.defaultProvider = 'minimax';
+    config.defaultModel = 'MiniMax-Text-01';
+    console.log(chalk.green('✓ MiniMax API key saved'));
   }
   if (opts.ollamaUrl) {
     config.providers.ollama = { baseUrl: opts.ollamaUrl };

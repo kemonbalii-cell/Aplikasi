@@ -1,6 +1,6 @@
 // ─── Core Enums & Scalars ───────────────────────────────────────────────────
 
-export type Provider = 'claude' | 'openai' | 'ollama' | 'google';
+export type Provider = 'claude' | 'openai' | 'ollama' | 'google' | 'minimax';
 export type AgentRole =
   | 'planner'
   | 'executor'

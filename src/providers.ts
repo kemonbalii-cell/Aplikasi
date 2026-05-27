@@ -15,6 +15,9 @@ export const MODELS: ModelDef[] = [
   // Google
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'google', contextWindow: 1_000_000, inputCostPer1m: 0.3, outputCostPer1m: 2.5, supportsTools: true, supportsVision: true, supportsStreaming: true, description: 'Fast Gemini with huge context' },
   { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', provider: 'google', contextWindow: 2_000_000, inputCostPer1m: 3.5, outputCostPer1m: 10.5, supportsTools: true, supportsVision: true, supportsStreaming: true, description: 'Most capable Gemini model' },
+  // MiniMax
+  { id: 'MiniMax-Text-01', name: 'MiniMax Text-01', provider: 'minimax', contextWindow: 1_000_000, inputCostPer1m: 0.14, outputCostPer1m: 0.55, supportsTools: true, supportsVision: false, supportsStreaming: true, description: 'MiniMax flagship long-context model' },
+  { id: 'MiniMax-M1', name: 'MiniMax M1', provider: 'minimax', contextWindow: 1_000_000, inputCostPer1m: 0.3, outputCostPer1m: 1.1, supportsTools: true, supportsVision: false, supportsStreaming: true, description: 'MiniMax reasoning model' },
   // Ollama
   { id: 'llama3.2', name: 'Llama 3.2', provider: 'ollama', contextWindow: 128_000, inputCostPer1m: 0, outputCostPer1m: 0, supportsTools: false, supportsVision: false, supportsStreaming: true, description: 'Local Llama model (free)' },
   { id: 'mistral', name: 'Mistral 7B', provider: 'ollama', contextWindow: 32_000, inputCostPer1m: 0, outputCostPer1m: 0, supportsTools: false, supportsVision: false, supportsStreaming: true, description: 'Local Mistral model (free)' },
@@ -330,6 +333,69 @@ async function* streamGoogle(opts: SendMessageOptions): AsyncGenerator<StreamChu
   }
 }
 
+// ─── MiniMax Provider (OpenAI-compatible) ───────────────────────────────────
+
+async function* streamMiniMax(opts: SendMessageOptions): AsyncGenerator<StreamChunk> {
+  const { content, model, systemPrompt, temperature, maxTokens } = opts;
+  const apiKey = (opts as unknown as Record<string, string>)._apiKey;
+
+  const messages: Array<{ role: string; content: string }> = [];
+  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+  messages.push({ role: 'user', content });
+
+  const resp = await fetch('https://api.minimaxi.chat/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: maxTokens || 4096,
+      temperature: temperature ?? 0.7,
+      stream: true,
+    }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    yield { type: 'error', error: `MiniMax API error ${resp.status}: ${errText}` };
+    return;
+  }
+
+  const reader = resp.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+      if (data === '[DONE]') continue;
+      try {
+        const event = JSON.parse(data);
+        if (event.usage) {
+          inputTokens = event.usage.prompt_tokens || 0;
+          outputTokens = event.usage.completion_tokens || 0;
+        }
+        const delta = event.choices?.[0]?.delta;
+        if (delta?.content) yield { type: 'text', content: delta.content };
+      } catch {}
+    }
+  }
+
+  yield { type: 'usage', inputTokens, outputTokens };
+  yield { type: 'done' };
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 export interface ProviderCredentials {
@@ -337,6 +403,7 @@ export interface ProviderCredentials {
   openai?: { apiKey: string };
   ollama?: { baseUrl: string };
   google?: { apiKey: string };
+  minimax?: { apiKey: string };
 }
 
 export async function* sendMessage(
@@ -359,6 +426,9 @@ export async function* sendMessage(
   } else if (provider === 'google' && creds.google) {
     enriched._apiKey = creds.google.apiKey;
     yield* streamGoogle(enriched as unknown as SendMessageOptions);
+  } else if (provider === 'minimax' && creds.minimax) {
+    enriched._apiKey = creds.minimax.apiKey;
+    yield* streamMiniMax(enriched as unknown as SendMessageOptions);
   } else {
     yield {
       type: 'error',
@@ -391,7 +461,8 @@ export function routeMessage(
     p === 'ollama' ||
     (p === 'claude' && !!creds.claude?.apiKey) ||
     (p === 'openai' && !!creds.openai?.apiKey) ||
-    (p === 'google' && !!creds.google?.apiKey);
+    (p === 'google' && !!creds.google?.apiKey) ||
+    (p === 'minimax' && !!creds.minimax?.apiKey);
 
   if (hasCreds(preferredProvider)) {
     return { provider: preferredProvider, model: preferredModel, reason: 'User preference' };
@@ -408,6 +479,9 @@ export function routeMessage(
   }
   if (hasCreds('google')) {
     return { provider: 'google', model: 'gemini-2.5-flash', reason: 'Auto-routed to Google' };
+  }
+  if (hasCreds('minimax')) {
+    return { provider: 'minimax', model: 'MiniMax-Text-01', reason: 'Auto-routed to MiniMax' };
   }
   if (hasCreds('ollama')) {
     return { provider: 'ollama', model: isCoding ? 'qwen2.5-coder' : 'llama3.2', reason: 'Auto-routed to local Ollama' };

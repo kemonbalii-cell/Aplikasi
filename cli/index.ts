@@ -32,6 +32,7 @@ program
   .option('--claude-key <key>', 'Set Anthropic Claude API key')
   .option('--openai-key <key>', 'Set OpenAI API key')
   .option('--google-key <key>', 'Set Google Gemini API key')
+  .option('--minimax-key <key>', 'Set MiniMax API key')
   .option('--ollama-url <url>', 'Set Ollama base URL')
   .option('--model <model>', 'Set default model')
   .option('--show', 'Show current config')
