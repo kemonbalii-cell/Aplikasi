@@ -334,29 +334,29 @@ async function* streamGoogle(opts: SendMessageOptions): AsyncGenerator<StreamChu
   }
 }
 
-// ─── MiniMax Provider (OpenAI-compatible) ───────────────────────────────────
+// ─── MiniMax Provider (Anthropic-compatible) ────────────────────────────────
 
 async function* streamMiniMax(opts: SendMessageOptions): AsyncGenerator<StreamChunk> {
   const { content, model, systemPrompt, temperature, maxTokens } = opts;
   const apiKey = (opts as unknown as Record<string, string>)._apiKey;
 
-  const messages: Array<{ role: string; content: string }> = [];
-  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
-  messages.push({ role: 'user', content });
+  const body: Record<string, unknown> = {
+    model,
+    messages: [{ role: 'user', content }],
+    max_tokens: maxTokens || 4096,
+    temperature: temperature ?? 0.7,
+    stream: true,
+  };
+  if (systemPrompt) body.system = systemPrompt;
 
-  const resp = await fetch('https://api.minimax.io/v1/chat/completions', {
+  const resp = await fetch('https://api.minimax.io/anthropic/v1/messages', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: maxTokens || 4096,
-      temperature: temperature ?? 0.7,
-      stream: true,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!resp.ok) {
@@ -365,6 +365,7 @@ async function* streamMiniMax(opts: SendMessageOptions): AsyncGenerator<StreamCh
     return;
   }
 
+  // Anthropic streaming format
   const reader = resp.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -383,12 +384,14 @@ async function* streamMiniMax(opts: SendMessageOptions): AsyncGenerator<StreamCh
       if (data === '[DONE]') continue;
       try {
         const event = JSON.parse(data);
-        if (event.usage) {
-          inputTokens = event.usage.prompt_tokens || 0;
-          outputTokens = event.usage.completion_tokens || 0;
+        if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+          yield { type: 'text', content: event.delta.text };
+          outputTokens += Math.ceil(event.delta.text.length / 4);
+        } else if (event.type === 'message_delta' && event.usage) {
+          outputTokens = event.usage.output_tokens || outputTokens;
+        } else if (event.type === 'message_start' && event.message?.usage) {
+          inputTokens = event.message.usage.input_tokens || 0;
         }
-        const delta = event.choices?.[0]?.delta;
-        if (delta?.content) yield { type: 'text', content: delta.content };
       } catch {}
     }
   }

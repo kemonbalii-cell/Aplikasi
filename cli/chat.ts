@@ -131,18 +131,21 @@ async function directStream(
       }
     }
   } else if (provider === 'minimax' && creds.minimax?.apiKey) {
-    const resp = await fetch('https://api.minimax.io/v1/chat/completions', {
+    const mmBody: Record<string, unknown> = {
+      model,
+      messages: [{ role: 'user', content: message }],
+      max_tokens: config.maxTokens,
+      stream: true,
+    };
+    if (config.systemPrompt) mmBody.system = config.systemPrompt;
+    const resp = await fetch('https://api.minimax.io/anthropic/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${creds.minimax.apiKey}`,
+        'x-api-key': creds.minimax.apiKey,
+        'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: message }],
-        max_tokens: config.maxTokens,
-        stream: true,
-      }),
+      body: JSON.stringify(mmBody),
     });
     if (!resp.ok) {
       const errBody = await resp.text();
@@ -160,13 +163,11 @@ async function directStream(
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           const data = line.slice(6);
-          if (data === '[DONE]') continue;
           try {
             const ev = JSON.parse(data);
-            // MiniMax may return error in stream
-            if (ev.error) { console.error(chalk.red(`MiniMax: ${ev.error.message || JSON.stringify(ev.error)}`)); break; }
-            const text = ev.choices?.[0]?.delta?.content;
-            if (text) process.stdout.write(text);
+            if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
+              process.stdout.write(ev.delta.text);
+            }
           } catch {}
         }
       }
