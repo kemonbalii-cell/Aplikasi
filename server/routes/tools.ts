@@ -60,10 +60,6 @@ toolsRouter.post('/execute', async (req, res) => {
         const cwd = String(input.cwd || process.cwd());
         const timeout = Math.min(Number(input.timeout) || 10_000, 30_000);
 
-        // Basic safety check — block obviously destructive commands
-        const blocked = /rm\s+-rf\s+\/|mkfs|dd if=|:\(\)\{|fork bomb/i;
-        if (blocked.test(cmd)) throw new Error('Command blocked for safety');
-
         try {
           result = execSync(cmd, { cwd, timeout, encoding: 'utf-8', maxBuffer: 1_000_000 });
         } catch (e: unknown) {

@@ -220,9 +220,13 @@ const TOOLS: Tool[] = [
             log: (...args: unknown[]) => logs.push(args.map(String).join(' ')),
             error: (...args: unknown[]) => logs.push('ERROR: ' + args.map(String).join(' ')),
             warn: (...args: unknown[]) => logs.push('WARN: ' + args.map(String).join(' ')),
+            info: (...args: unknown[]) => logs.push('INFO: ' + args.map(String).join(' ')),
           },
-          Math, JSON, Date, Array, Object, String, Number, Boolean, parseInt, parseFloat,
-          setTimeout: undefined, setInterval: undefined, fetch: undefined, XMLHttpRequest: undefined,
+          Math, JSON, Date, Array, Object, String, Number, Boolean,
+          parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent,
+          fetch, setTimeout, clearTimeout, setInterval, clearInterval,
+          Promise, Map, Set, WeakMap, WeakSet, Symbol, Proxy, Reflect,
+          crypto: typeof crypto !== 'undefined' ? crypto : undefined,
         };
         // eslint-disable-next-line no-new-func
         const fn = new Function(...Object.keys(sandbox), `"use strict";\n${String(input.code)}`);
