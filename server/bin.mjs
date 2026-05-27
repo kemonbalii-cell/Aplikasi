@@ -1,41 +1,38 @@
 #!/usr/bin/env node
-import { fileURLToPath } from 'url';
+/**
+ * ASTRA HERMES ULTRA — Gateway entry point
+ * Uses tsx register API (same process, no subprocess, no PATH issues)
+ * Works on Windows, macOS, Linux — Node.js 18+
+ */
+import { createRequire } from 'module';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join, resolve } from 'path';
-import { spawn } from 'child_process';
-import { existsSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
-const isWin = process.platform === 'win32';
-const ext = isWin ? '.cmd' : '';
 
-const candidates = [
-  join(root, 'node_modules', '.bin', `tsx${ext}`),
-  join(root, '..', '.bin', `tsx${ext}`),
-];
+// Resolve tsx relative to THIS package's node_modules
+// (works whether installed globally or locally)
+const req = createRequire(pathToFileURL(join(root, 'package.json')).href);
 
-let tsxCmd = `tsx${ext}`;
-for (const c of candidates) {
-  if (existsSync(c)) { tsxCmd = c; break; }
+let tsxEsmPath;
+try {
+  tsxEsmPath = req.resolve('tsx/esm/api');
+} catch {
+  console.error([
+    '',
+    '  ERROR: tsx not found in node_modules.',
+    '  Fix: cd into the Aplikasi folder and run:',
+    '    npm install',
+    '    npm install -g .',
+    '',
+  ].join('\n'));
+  process.exit(1);
 }
 
-const child = spawn(tsxCmd, [join(__dirname, 'index.ts'), ...process.argv.slice(2)], {
-  stdio: 'inherit',
-  cwd: root,
-  shell: isWin,
-});
+// Dynamically import tsx/esm/api and register TypeScript loader
+const { register } = await import(pathToFileURL(tsxEsmPath).href);
+register();
 
-child.on('error', () => {
-  const child2 = spawn(process.execPath, [
-    '--import', 'tsx/esm',
-    join(__dirname, 'index.ts'),
-    ...process.argv.slice(2),
-  ], { stdio: 'inherit', cwd: root });
-  child2.on('error', (e) => {
-    console.error('\nCould not start Gateway:\n  npm install\n\n' + e.message);
-    process.exit(1);
-  });
-  child2.on('exit', (c) => process.exit(c ?? 0));
-});
-
-child.on('exit', (code) => process.exit(code ?? 0));
+// Now import the TypeScript Gateway — works because tsx is registered
+await import(pathToFileURL(join(__dirname, 'index.ts')).href);
