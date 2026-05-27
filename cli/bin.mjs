@@ -1,26 +1,22 @@
 #!/usr/bin/env node
-// Entry point wrapper — resolves tsx and runs the CLI
-import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { spawn } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
+const isWin = process.platform === 'win32';
 
-// Find tsx: local node_modules first, then global
-const require = createRequire(import.meta.url);
-let tsxBin;
-try {
-  tsxBin = require.resolve('.bin/tsx', { paths: [root] });
-} catch {
-  tsxBin = 'tsx'; // fallback to global tsx
-}
-
+// On Windows npm installs tsx as tsx.cmd — use shell:true to resolve it
 const child = spawn(
-  tsxBin,
+  isWin ? 'tsx.cmd' : 'tsx',
   [join(__dirname, 'index.ts'), ...process.argv.slice(2)],
-  { stdio: 'inherit', cwd: root }
+  { stdio: 'inherit', cwd: root, shell: isWin }
 );
+
+child.on('error', (err) => {
+  console.error('Failed to start ASTRA. Make sure tsx is installed:\n  npm install -g tsx\n', err.message);
+  process.exit(1);
+});
 
 child.on('exit', (code) => process.exit(code ?? 0));
